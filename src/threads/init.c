@@ -132,15 +132,101 @@ pintos_init (void)
   if (*argv != NULL) {
     /* Run actions specified on kernel command line. */
     run_actions (argv);
-  } else {
-    // TODO: no command line passed to kernel. Run interactively 
+  }
+  else
+  {
+    // TODO: no command line passed to kernel. Run interactively :
+    printf("Entering Interactive Mode...\n");
+
+    bool is_shell_active = true;
+    while(is_shell_active)
+    {
+      char command[256];
+      char *cmd_pos = command;
+      char c; 
+      int nullchar_index = 0;
+      int spacechar_index = 0;
+
+      // Read command
+      printf("ICS143A>");
+      bool is_returned = false;
+      while(!is_returned)
+      {
+        c = input_getc();
+        switch ((int)c)
+        {
+        case 10: // enter 
+          *cmd_pos='\0';
+          putchar('\n');
+          nullchar_index = cmd_pos - command;
+          is_returned = true;
+          break;
+        case 127: // backspace
+          if(cmd_pos > command)
+          {
+            printf("\b \b");
+            cmd_pos--;
+          }
+          break;
+        default:
+          if (cmd_pos < (command + sizeof(command) - 1))
+          {
+            *cmd_pos++ = c;
+            putchar(c);
+            break;
+          }
+        }
+      }
+
+      //execute command
+      while(command[spacechar_index] != '\0')
+      {
+        if(command[spacechar_index] == ' ')
+        {
+          break;
+        }
+        else
+        {
+          spacechar_index++;
+        }
+      }
+
+      char * cmd_substr = malloc((spacechar_index + 1) * sizeof(char));
+      strlcpy(cmd_substr, command, spacechar_index + 1);
+
+      if(!strcmp(cmd_substr, "exit"))
+      {
+        is_shell_active = false;
+      }
+      else if(!strcmp(cmd_substr, "whoami"))
+      {
+        if(nullchar_index == spacechar_index)
+        {
+          puts("Zachary Thomas");
+        }
+        else
+        {
+          char *arg_substr = malloc((nullchar_index - spacechar_index) * sizeof(char));
+          strlcpy(arg_substr, command + spacechar_index + 1, nullchar_index - spacechar_index);
+
+          puts(arg_substr);
+          free(arg_substr);
+        }
+      }
+      else
+      {
+        printf("invalid command\n");
+      }
+      free(cmd_substr);
+    }
+    printf("Shell exiting\n");
   }
 
   /* Finish up. */
   shutdown ();
   thread_exit ();
 }
-
+
 /* Clear the "BSS", a segment that should be initialized to
    zeros.  It isn't actually stored on disk or zeroed by the
    kernel loader, so we have to zero it ourselves.

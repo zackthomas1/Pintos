@@ -1,0 +1,46 @@
+			+-------------------------+
+			|      CompSci 143A       |
+			| PROJECT 0: Getting Real |
+			|     DESIGN DOCUMENT     |
+			+-------------------------+
+				   
+---- AUTHOR ----
+
+Zachary Thomas <zachat1@uci.edu>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, or notes for the
+>> TAs, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+  	Stackoverflow
+  	google web search 
+  	Standford 140: operating system course notes
+
+			     Booting Pintos
+			     ==============
+
+---- QUESTIONS ---- 
+>> Put the screenshots of Pintos running in src/p0.
+>> A1: Is there any particular issue that you would like us to know?
+	No, there are no particular issues that I would like you to know
+			     Kernel Monitor
+			     ==============
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+---- ALGORITHMS ----
+>> C2: Explain how you read and write to the console for the kernel monitor.
+	I wrote to the console using the puts() putsc() functions. I read character inputs using the input_getc() function.
+
+>> C3: Any additional enhancement you implement?
+	I added backspace functionality to the shell.
+	I implemented functionality that allows the user to add aurguments to the 'whoami' command. 
+	For instance, the command 'whoami Ardalan' will output 'Ardalan'.
