@@ -24,6 +24,10 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* List of processes in THEAD_BLOCKED state, that is, processes 
+   that are are sleeping*/
+static struct list sleep_list;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -91,6 +95,7 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init (&sleep_list);
   list_init (&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -137,6 +142,31 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+
+/**/
+void
+update_sleep_threads(int64_t global_ticks)
+{
+  /* Check sleeping threads*/
+  struct list_elem *e = list_begin(&sleep_list);
+  while(e != list_end(&sleep_list))
+  {
+    struct thread *sleeping_thread = list_entry (e, struct thread, elem);
+    if(sleeping_thread->sleep_ticks <= global_ticks)
+    {
+      // wake thread  
+      // printf("(update_waiting_threads) waking --> name: %s status: %d ticks: %d gobal ticks: %d\n",
+      //   sleeping_thread->name, sleeping_thread->status, (int)sleeping_thread->sleep_ticks, (int)global_ticks
+      // );
+
+      ASSERT(sleeping_thread->status == THREAD_BLOCKED); 
+      e = list_remove(&sleeping_thread->elem);
+      thread_unblock(sleeping_thread);
+    }else{
+      e = list_next(e);
+    }
+  }
 }
 
 /* Prints thread statistics. */
@@ -314,6 +344,28 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
+/* Puts thread to sleep*/
+void thread_sleep(int64_t ticks){
+  struct thread *cur = thread_current(); 
+  enum intr_level old_level; 
+
+  ASSERT(!intr_context());
+  old_level = intr_disable(); // disable interrupts
+  
+  if(cur != idle_thread)
+  {
+    // printf("(thread_sleep) name: %s status: %d ticks: %d \n", 
+    //   cur->name, cur->status, (int)ticks
+    // );
+
+    thread_set_sleep_ticks(ticks);            // store the local tick to wake up, 
+    list_push_back (&sleep_list, &cur->elem); //
+    thread_block();                           // change the state of the caller thread to BLOCK and call schedule() 
+  }
+
+  intr_set_level(old_level); // enable interrupts
+}
+
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
 void
@@ -375,6 +427,14 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
+
+/* Sets the current thread's sleep_ticks to ticks.*/
+void
+thread_set_sleep_ticks (uint64_t ticks)
+{
+  thread_current()->sleep_ticks = ticks;
+}
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -463,6 +523,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->sleep_ticks = 0;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
