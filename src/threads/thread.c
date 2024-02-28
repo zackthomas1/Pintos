@@ -144,28 +144,27 @@ thread_tick (void)
     intr_yield_on_return ();
 }
 
-/**/
+/* Called by the timer interrupt handler at each timer tick. 
+   Is responsible for waking sleeping threads.*/
 void
 update_sleep_threads(int64_t global_ticks)
 {
-  /* Check sleeping threads*/
   struct list_elem *e = list_begin(&sleep_list);
   while(e != list_end(&sleep_list))
   {
     struct thread *sleeping_thread = list_entry (e, struct thread, elem);
-    if(sleeping_thread->sleep_ticks <= global_ticks)
-    {
-      // wake thread  
-      // printf("(update_waiting_threads) waking --> name: %s status: %d ticks: %d gobal ticks: %d\n",
-      //   sleeping_thread->name, sleeping_thread->status, (int)sleeping_thread->sleep_ticks, (int)global_ticks
-      // );
+    
+    if(sleeping_thread->sleep_ticks > global_ticks)
+      break;
 
-      ASSERT(sleeping_thread->status == THREAD_BLOCKED); 
-      e = list_remove(&sleeping_thread->elem);
-      thread_unblock(sleeping_thread);
-    }else{
-      e = list_next(e);
-    }
+    // printf("(update_waiting_threads) waking --> name: %s status: %d ticks: %d global ticks: %d\n",
+    //   sleeping_thread->name, sleeping_thread->status, (int)sleeping_thread->sleep_ticks, (int)global_ticks
+    // );
+
+    // wake thread
+    ASSERT(sleeping_thread->status == THREAD_BLOCKED); 
+    e = list_remove(&sleeping_thread->elem);
+    thread_unblock(sleeping_thread);
   }
 }
 
@@ -344,8 +343,9 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
-/* Puts thread to sleep*/
-void thread_sleep(int64_t ticks){
+/*Called by timer_sleep. Adds current thread to sleeping threads list and BLOCKS*/
+void 
+thread_sleep(int64_t ticks){
   struct thread *cur = thread_current(); 
   enum intr_level old_level; 
 
@@ -354,16 +354,36 @@ void thread_sleep(int64_t ticks){
   
   if(cur != idle_thread)
   {
-    // printf("(thread_sleep) name: %s status: %d ticks: %d \n", 
+    thread_set_sleep_ticks(ticks);            // store the local tick to wake up, 
+    list_insert_ordered(&sleep_list, &cur->elem, ticks_less, NULL);
+
+    // printf("(thread_sleep) Adding thread - name: %s status: %d ticks: %d \n", 
     //   cur->name, cur->status, (int)ticks
     // );
+    // printf("(thread_sleep) sleep_list \n");
+    // struct list_elem *e;
+    // for (e = list_begin (&sleep_list); e != list_end (&sleep_list); e = list_next (e))
+    // {
+    //   struct thread *t = list_entry (e, struct thread, elem);
+    //   printf("\tname: %s status: %d ticks: %d\n",
+    //     t->name, t->status, (int)t->sleep_ticks
+    //   ); 
+    // }
 
-    thread_set_sleep_ticks(ticks);            // store the local tick to wake up, 
-    list_push_back (&sleep_list, &cur->elem); //
     thread_block();                           // change the state of the caller thread to BLOCK and call schedule() 
   }
 
   intr_set_level(old_level); // enable interrupts
+}
+
+/* Responsible for sorting sleep_list in non-descending order.*/
+bool 
+ticks_less (const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  struct thread *a_thread = list_entry (a, struct thread, elem);
+  struct thread *b_thread = list_entry (b, struct thread, elem);
+
+  return (a_thread->sleep_ticks < b_thread->sleep_ticks);
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
