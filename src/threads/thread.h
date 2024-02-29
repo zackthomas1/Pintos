@@ -90,7 +90,7 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
-    int64_t sleep_ticks;                /* Local ticks at which thread will wake*/
+    int64_t wakeup_tick;                /* Local ticks at which thread will wake*/
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -145,6 +145,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-void thread_set_sleep_ticks(uint64_t ticks); 
+void thread_set_wakeup_tick(uint64_t ticks); 
 
 #endif /* threads/thread.h */

@@ -154,11 +154,11 @@ update_sleep_threads(int64_t global_ticks)
   {
     struct thread *sleeping_thread = list_entry (e, struct thread, elem);
     
-    if(sleeping_thread->sleep_ticks > global_ticks)
+    if(sleeping_thread->wakeup_tick > global_ticks)
       break;
 
     // printf("(update_waiting_threads) waking --> name: %s status: %d ticks: %d global ticks: %d\n",
-    //   sleeping_thread->name, sleeping_thread->status, (int)sleeping_thread->sleep_ticks, (int)global_ticks
+    //   sleeping_thread->name, sleeping_thread->status, (int)sleeping_thread->wakeup_tick, (int)global_ticks
     // );
 
     // wake thread
@@ -354,11 +354,11 @@ thread_sleep(int64_t ticks){
   
   if(cur != idle_thread)
   {
-    thread_set_sleep_ticks(ticks);            // store the local tick to wake up, 
+    thread_set_wakeup_tick(ticks);            // store the local tick to wake up, 
     list_insert_ordered(&sleep_list, &cur->elem, ticks_less, NULL);
 
     // printf("(thread_sleep) Adding thread - name: %s status: %d ticks: %d \n", 
-    //   cur->name, cur->status, (int)ticks
+    //   cur->name, cur->status, (int)cur->wakeup_tick
     // );
     // printf("(thread_sleep) sleep_list \n");
     // struct list_elem *e;
@@ -366,7 +366,7 @@ thread_sleep(int64_t ticks){
     // {
     //   struct thread *t = list_entry (e, struct thread, elem);
     //   printf("\tname: %s status: %d ticks: %d\n",
-    //     t->name, t->status, (int)t->sleep_ticks
+    //     t->name, t->status, (int)t->wakeup_tick
     //   ); 
     // }
 
@@ -383,7 +383,7 @@ ticks_less (const struct list_elem *a, const struct list_elem *b, void *aux)
   struct thread *a_thread = list_entry (a, struct thread, elem);
   struct thread *b_thread = list_entry (b, struct thread, elem);
 
-  return (a_thread->sleep_ticks < b_thread->sleep_ticks);
+  return (a_thread->wakeup_tick < b_thread->wakeup_tick);
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -450,9 +450,9 @@ thread_get_recent_cpu (void)
 
 /* Sets the current thread's sleep_ticks to ticks.*/
 void
-thread_set_sleep_ticks (uint64_t ticks)
+thread_set_wakeup_tick (uint64_t ticks)
 {
-  thread_current()->sleep_ticks = ticks;
+  thread_current()->wakeup_tick = ticks;
 }
 
 
@@ -543,7 +543,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->sleep_ticks = 0;
+  t->wakeup_tick = 0;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
