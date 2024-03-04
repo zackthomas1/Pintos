@@ -157,10 +157,6 @@ update_sleep_threads(int64_t global_ticks)
     if(sleeping_thread->wakeup_tick > global_ticks)
       break;
 
-    // printf("(update_waiting_threads) waking --> name: %s status: %d ticks: %d global ticks: %d\n",
-    //   sleeping_thread->name, sleeping_thread->status, (int)sleeping_thread->wakeup_tick, (int)global_ticks
-    // );
-
     // wake thread
     ASSERT(sleeping_thread->status == THREAD_BLOCKED); 
     e = list_next(list_pop_front(&sleep_list));
@@ -374,20 +370,6 @@ thread_sleep(int64_t ticks){
   {
     thread_set_wakeup_tick(ticks);            // store the local tick to wake up, 
     list_insert_ordered(&sleep_list, &cur->elem, ticks_less, NULL);
-
-    // printf("(thread_sleep) Adding thread - name: %s status: %d ticks: %d \n", 
-    //   cur->name, cur->status, (int)cur->wakeup_tick
-    // );
-    // printf("(thread_sleep) sleep_list \n");
-    // struct list_elem *e;
-    // for (e = list_begin (&sleep_list); e != list_end (&sleep_list); e = list_next (e))
-    // {
-    //   struct thread *t = list_entry (e, struct thread, elem);
-    //   printf("\tname: %s status: %d ticks: %d\n",
-    //     t->name, t->status, (int)t->wakeup_tick
-    //   ); 
-    // }
-
     thread_block();                           // change the state of the caller thread to BLOCK and call schedule() 
   }
 
@@ -425,6 +407,7 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  ASSERT(PRI_MIN <= new_priority && new_priority <= PRI_MAX);
   struct thread *cur = thread_current();
 
   if(cur->priority == new_priority)
@@ -432,6 +415,9 @@ thread_set_priority (int new_priority)
   
   cur->priority = new_priority;
 
+  if(list_empty(&ready_list))
+    return; 
+  
   struct thread *next_ready_thread = list_entry (list_front(&ready_list), struct thread, elem);
   if(new_priority < next_ready_thread->priority){
     thread_yield();
