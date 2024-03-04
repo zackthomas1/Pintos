@@ -227,10 +227,9 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
 
   /* compare the priorities of the currently running 
-  thread and th newly inserted one. Yield the CPU if the
+  thread and the newly inserted one. Yield the CPU if the
   newly arriving thread has higher priority */
-  struct thread *cur = thread_current(); 
-  if(t->priority > cur->priority){
+  if(t->priority > thread_current()->priority){
     thread_yield();
   }
 
@@ -270,14 +269,14 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list, &t->elem, priority_greater, NULL);
+  list_insert_ordered(&ready_list, &t->elem, thread_priority_greater, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
 
-/* Responsible for sorting sleep_list in non-descending order.*/
+/* Responsible for sorting ready_list in non-ascending priority order.*/
 bool 
-priority_greater (const struct list_elem *a, const struct list_elem *b, void *aux)
+thread_priority_greater (const struct list_elem *a, const struct list_elem *b, void *aux)
 {
   struct thread *a_thread = list_entry (a, struct thread, elem); 
   struct thread *b_thread = list_entry (b, struct thread, elem);
@@ -351,7 +350,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_insert_ordered(&ready_list, &cur->elem, priority_greater, NULL);
+    list_insert_ordered(&ready_list, &cur->elem, thread_priority_greater, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -369,16 +368,16 @@ thread_sleep(int64_t ticks){
   if(cur != idle_thread)
   {
     thread_set_wakeup_tick(ticks);            // store the local tick to wake up, 
-    list_insert_ordered(&sleep_list, &cur->elem, ticks_less, NULL);
+    list_insert_ordered(&sleep_list, &cur->elem, thread_ticks_less, NULL);
     thread_block();                           // change the state of the caller thread to BLOCK and call schedule() 
   }
 
   intr_set_level(old_level); // enable interrupts
 }
 
-/* Responsible for sorting sleep_list in non-descending order.*/
+/* Responsible for sorting sleep_list in non-descending wakeup_tick order.*/
 bool 
-ticks_less (const struct list_elem *a, const struct list_elem *b, void *aux)
+thread_ticks_less (const struct list_elem *a, const struct list_elem *b, void *aux)
 {
   struct thread *a_thread = list_entry (a, struct thread, elem);
   struct thread *b_thread = list_entry (b, struct thread, elem);

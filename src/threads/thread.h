@@ -82,18 +82,18 @@ typedef int tid_t;
    blocked state is on a semaphore wait list. */
 struct thread
   {
-    /* Owned by thread.c. */
-    tid_t tid;                          /* Thread identifier. */
-    enum thread_status status;          /* Thread state. */
-    char name[16];                      /* Name (for debugging purposes). */
-    uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
+   /* Owned by thread.c. */
+   tid_t tid;                          /* Thread identifier. */
+   enum thread_status status;          /* Thread state. */
+   char name[16];                      /* Name (for debugging purposes). */
+   uint8_t *stack;                     /* Saved stack pointer. */
+   int priority;                       /* Priority. */
+   struct list_elem allelem;           /* List element for all threads list. */
 
-    int64_t wakeup_tick;                /* Local ticks at which thread will wake*/
+   int64_t wakeup_tick;                /* Local ticks at which thread will wake*/
 
-    /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
+   /* Shared between thread.c and synch.c. */
+   struct list_elem elem;              /* List element. */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -123,7 +123,6 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 void thread_block (void);
 void thread_unblock (struct thread *);
 
-bool priority_greater (const struct list_elem *a, const struct list_elem *b, void *aux);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
@@ -133,7 +132,8 @@ void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 void thread_sleep (int64_t);
 
-bool ticks_less (const struct list_elem *a, const struct list_elem *b, void *aux);
+bool thread_priority_greater (const struct list_elem *, const struct list_elem *, void *aux);
+bool thread_ticks_less (const struct list_elem *, const struct list_elem *, void *aux);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
