@@ -407,39 +407,43 @@ void
 thread_set_priority (int new_priority) 
 {
   ASSERT(PRI_MIN <= new_priority && new_priority <= PRI_MAX);
-  
+
+  enum intr_level old_level = intr_disable ();
+
   struct thread *cur = thread_current();
 
-  if(cur->priority == new_priority)
-    return;
-  
-  cur->priority = new_priority;
-
-  if(list_empty(&ready_list))
-    return; 
-  
-  /* If the current thread no longer has the highest priority, yields */
-  struct thread *next_ready_thread = list_entry (list_front(&ready_list), struct thread, elem);
-  if(new_priority < next_ready_thread->priority){
-    thread_yield();
+  if(cur->priority != new_priority){
+    if(list_empty(&cur->donors))
+      {
+        cur->priority = new_priority; 
+        cur->default_priority = new_priority; 
+      }
+    else if(new_priority > cur->priority)
+      {
+        cur->priority = new_priority; 
+        cur->default_priority = new_priority; 
+      }
+    else
+      {
+        cur->default_priority = new_priority;
+      }
   }
+
+  if(!list_empty(&ready_list))
+    {
+      /* If the current thread no longer has the highest priority, yields */
+      struct thread *next_ready_thread = list_entry (list_front(&ready_list), struct thread, elem);
+      if(new_priority < next_ready_thread->priority)
+        thread_yield();
+    }
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
 {
-  /* In the presence of priority donation, returns the higher (donated) priority. */
-  struct thread *cur = thread_current();
-
-  /* may be a noop*/
-  if(!list_empty(&cur->donors)){
-      struct list_elem *max_donor = list_max(&cur->donors, thread_priority_greater, NULL);
-      struct thread *max_donor_thread = list_entry(max_donor, struct thread, d_elem);
-      return max_donor_thread->priority > cur->priority ? max_donor_thread->priority : cur->priority;
-  }else{
-    return cur->priority;
-  }
+  return thread_current()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */

@@ -200,8 +200,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
   
-  // enum intr_level old_level;
-  // old_level = intr_disable ();
+  enum intr_level old_level = intr_disable ();
 
   struct thread *cur = thread_current();
 
@@ -214,9 +213,10 @@ lock_acquire (struct lock *lock)
     struct thread *t = cur;
     while(t->waiting_on_lock != NULL){
       struct thread *lock_holder = t->waiting_on_lock->holder;
-      if(t->priority > lock_holder->priority){
-        lock->holder->priority = t->priority;
-      }
+      if(t->priority > lock_holder->priority)
+        {
+          lock_holder->priority = t->priority;
+        }
       t = lock_holder;
     }
   }
@@ -224,7 +224,7 @@ lock_acquire (struct lock *lock)
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 
-  // intr_set_level (old_level);
+  intr_set_level (old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -258,44 +258,52 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
   
-  // enum intr_level old_level;
-  // old_level = intr_disable ();
+  enum intr_level old_level = intr_disable ();
 
   struct thread *cur = thread_current();
-  
+ 
   /* Remove thread that holds the lock on donation list*/
-  struct list_elem *e = list_begin(&cur->donors);
-  while(e != list_end(&cur->donors)){
-      struct thread *e_thread = list_entry(e, struct thread, d_elem);
-      if(e_thread->waiting_on_lock == lock){
-        e = list_remove(e);
-      }else{
-        e = list_next(e);
-      }
-  }
+  struct list_elem *donor_elem = list_begin(&cur->donors);
+  while(donor_elem != list_end(&cur->donors))
+    {
+      struct thread *donor_thread = list_entry(donor_elem, struct thread, d_elem);
+      if(donor_thread->waiting_on_lock == lock || donor_thread->waiting_on_lock == NULL)
+        donor_elem = list_remove(donor_elem);
+      else
+        donor_elem = list_next(donor_elem);
+    }
 
-  if(!list_empty(&cur->donors)){
-    /* IF: After removing, there are more than 1 element in the list. */
-    struct list_elem *max_donor = list_max(&cur->donors, thread_priority_greater, NULL);
-    struct thread *max_donor_thread = list_entry(max_donor, struct thread, d_elem);
+  if(!list_empty(&cur->donors))
+    {
+      /* IF: After removing, there are more than 1 element in the list. */
+      struct list_elem *max_donor = list_max(&cur->donors, thread_priority_greater, NULL);
+      struct thread *max_donor_thread = list_entry(max_donor, struct thread, d_elem);
 
-    max_donor_thread->priority > cur->default_priority ? 
-      thread_set_priority(max_donor_thread->priority) : thread_set_priority(cur->default_priority); 
-  }else{
-    thread_set_priority(cur->default_priority); 
-  }
+      if(max_donor_thread->priority > cur->default_priority)
+        cur->priority = max_donor_thread->priority;
+      else
+        cur->priority = cur->default_priority; 
+    }
+  else
+    {
+      cur->priority = cur->default_priority; 
+    }
 
-  if(list_empty(&(lock->semaphore.waiters))){
-    lock->holder = NULL;
-  }else{
-    lock->holder = list_entry(list_front(&lock->semaphore.waiters), struct thread, elem);
-  }
+  if(list_empty(&(lock->semaphore.waiters)))
+    {
+      lock->holder = NULL;
+    }
+  else
+    {
+      lock->holder = list_entry(list_front(&lock->semaphore.waiters), struct thread, elem);
+      lock->holder->waiting_on_lock = NULL;
+    }
   
   /* add debug check that e_thread is equal to list_front(waiters)*/
 
   sema_up (&lock->semaphore);
 
-  // intr_set_level (old_level);
+  intr_set_level (old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -402,7 +410,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
 /* */
 bool 
-cond_priority_greater(struct list_elem *a, struct list_elem *b, list_less_func* less, void *aux)
+cond_priority_greater(struct list_elem *a, struct list_elem *b, void *aux)
 {
   struct semaphore_elem *a_sem = list_entry(a, struct semaphore_elem, elem); 
   struct semaphore_elem *b_sem = list_entry(b, struct semaphore_elem, elem); 

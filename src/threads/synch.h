@@ -42,7 +42,7 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
-bool cond_priority_greater(struct list_elem *a, struct list_elem *b, list_less_func* less, void *aux);
+bool cond_priority_greater(struct list_elem *a, struct list_elem *b, void *aux);
 
 /* Optimization barrier.
 
