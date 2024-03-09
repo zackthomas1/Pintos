@@ -151,17 +151,17 @@ update_sleep_threads(int64_t global_ticks)
 {
   struct list_elem *e = list_begin(&sleep_list);
   while(e != list_end(&sleep_list))
-  {
-    struct thread *sleeping_thread = list_entry (e, struct thread, elem);
-    
-    if(sleeping_thread->wakeup_tick > global_ticks)
-      break;
+    {
+      struct thread *sleeping_thread = list_entry (e, struct thread, elem);
+      
+      if(sleeping_thread->wakeup_tick > global_ticks)
+        break;
 
-    // wake thread
-    ASSERT(sleeping_thread->status == THREAD_BLOCKED); 
-    e = list_next(list_pop_front(&sleep_list));
-    thread_unblock(sleeping_thread);
-  }
+      // wake thread
+      ASSERT(sleeping_thread->status == THREAD_BLOCKED); 
+      e = list_next(list_pop_front(&sleep_list));
+      thread_unblock(sleeping_thread);
+    }
 }
 
 /* Prints thread statistics. */
@@ -229,9 +229,8 @@ thread_create (const char *name, int priority,
   /* compare the priorities of the currently running 
   thread and the newly inserted one. Yield the CPU if the
   newly arriving thread has higher priority */
-  if(t->priority > thread_current()->priority){
+  if(t->priority > thread_current()->priority)
     thread_yield();
-  }
 
   return tid;
 }
@@ -366,11 +365,11 @@ thread_sleep(int64_t ticks){
   old_level = intr_disable(); // disable interrupts
   
   if(cur != idle_thread)
-  {
-    thread_set_wakeup_tick(ticks);            // store the local tick to wake up, 
-    list_insert_ordered(&sleep_list, &cur->elem, thread_ticks_less, NULL);
-    thread_block();                           // change the state of the caller thread to BLOCK and call schedule() 
-  }
+    {
+      thread_set_wakeup_tick(ticks);            // store the local tick to wake up, 
+      list_insert_ordered(&sleep_list, &cur->elem, thread_ticks_less, NULL);
+      thread_block();                           // change the state of the caller thread to BLOCK and call schedule() 
+    }
 
   intr_set_level(old_level); // enable interrupts
 }
