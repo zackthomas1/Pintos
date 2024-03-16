@@ -204,6 +204,15 @@ lock_acquire (struct lock *lock)
 
   struct thread *cur = thread_current();
 
+  /* if mlfqs flag set do not invoke priority donation */
+  if(thread_mlfqs)
+    {
+      sema_down (&lock->semaphore);
+      lock->holder = thread_current ();
+      intr_set_level (old_level);
+      return;
+    }
+
   if(lock->holder){
     cur->waiting_on_lock = lock;
     list_insert_ordered(&lock->holder->donors, &cur->d_elem, thread_priority_greater, NULL);
@@ -259,9 +268,18 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   enum intr_level old_level = intr_disable ();
-
   struct thread *cur = thread_current();
  
+  /* if mlfqs flag set do not invoke priority donation */
+  if(thread_mlfqs)
+    {
+      lock->holder = NULL;
+      sema_up (&lock->semaphore);
+      intr_set_level (old_level);
+      return;
+    }
+
+  /* Priority donation*/
   /* Remove thread that holds the lock on donation list*/
   struct list_elem *donor_elem = list_begin(&cur->donors);
   while(donor_elem != list_end(&cur->donors))
@@ -273,9 +291,11 @@ lock_release (struct lock *lock)
         donor_elem = list_next(donor_elem);
     }
 
+  /* If after removal, there are more than 1 element in the list.
+     set current thread priority to the max of default priority or 
+     priority of max donor thread */
   if(!list_empty(&cur->donors))
     {
-      /* IF: After removing, there are more than 1 element in the list. */
       struct list_elem *max_donor = list_max(&cur->donors, thread_priority_greater, NULL);
       struct thread *max_donor_thread = list_entry(max_donor, struct thread, d_elem);
 
@@ -299,10 +319,7 @@ lock_release (struct lock *lock)
       lock->holder->waiting_on_lock = NULL;
     }
   
-  /* add debug check that e_thread is equal to list_front(waiters)*/
-
   sema_up (&lock->semaphore);
-
   intr_set_level (old_level);
 }
 

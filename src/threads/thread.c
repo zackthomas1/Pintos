@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "fxpt.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -57,6 +58,9 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+
+const int PRIORITY_TIME_SLICE = 4;      /* # timer ticks between each priority update (mlfqs) */
+const int RECENT_CPU_TIME_SLICE = 100;  /* # timer ticks between each recent dpu update (mlfqs) */
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -138,10 +142,61 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
+ 
+  if(thread_mlfqs)
+    {
+      /* every clock tick, increase running thread's recent_cpu by one*/
+      if(strcmp(t->name, "idle") != 0)
+        t->recent_cpu = addint(t->recent_cpu, 1);
+
+      /* every 4th tick */
+      if(timer_ticks() % PRIORITY_TIME_SLICE == 0)
+        {
+          /* recalculate priority of all threads */
+          thread_foreach(mlfqs_update_priority, NULL);
+        }
+
+      /* every 1 second, update every thread's recent_cpu */
+      if(timer_ticks() % RECENT_CPU_TIME_SLICE == 0) // use constant
+        {
+          int ready_threads = tofxpt(list_size(&ready_list) + (strcmp(running_thread()->name, "idle") == 0 ? 0 : 1));
+          /* load_avg (59/60) * load_avg + (1/60) * ready_threads */
+          load_avg =  addfx(
+                        divint(multint(load_avg, 59), 60), 
+                        divint(multint(ready_threads, 1), 60)
+                      );
+                      
+          /* decay = (2 * load_avg) / (2 * load_avg + 1) */
+          int decay = divfx(
+                        multint(load_avg, 2), 
+                        addint(multint(load_avg, 2), 1)
+                      );
+          thread_foreach(mlfqs_update_recent_cpu, &decay);
+        }
+    }
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+
+/* */
+void 
+mlfqs_update_priority(struct thread *t, void *aux)
+{
+  // priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
+  t->priority = PRI_MAX - tointround(divint(t->recent_cpu, 4)) - (t->nice * 2);
+  // msg("(update_priority) name: %s \tpriority: %d", t->name, t->priority);
+}
+
+/* */
+void 
+mlfqs_update_recent_cpu(struct thread *t, void *aux)
+{
+  int decay = *(int*) aux;
+  /* recent_cpu = decay * recent_cpu + nice */
+  t->recent_cpu = addint(multfx(decay, t->recent_cpu), t->nice);
+  // msg("(update_recent_cpu) name: %s \trecent_cpu: %d", t->name, tointround(t->recent_cpu));
 }
 
 /* Called by the timer interrupt handler at each timer tick. 
@@ -411,6 +466,16 @@ thread_set_priority (int new_priority)
 
   struct thread *cur = thread_current();
 
+  /* if mlfqs flag set do not invoke priority donation */
+  if(thread_mlfqs) 
+    {
+      msg("mlfqs\n");
+      cur->priority = new_priority;
+      intr_set_level (old_level);
+      return; 
+    }
+
+  /* priority donation */
   if(cur->priority != new_priority){
     if(list_empty(&cur->donors))
       {
@@ -435,6 +500,7 @@ thread_set_priority (int new_priority)
       if(new_priority < next_ready_thread->priority)
         thread_yield();
     }
+
   intr_set_level (old_level);
 }
 
@@ -449,31 +515,28 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+  thread_current()->nice = nice;
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return tointround(multint(load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return tointround(multint(thread_current()->recent_cpu, 100));
 }
 
 /* Sets the current thread's sleep_ticks to ticks.*/
@@ -571,6 +634,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->default_priority = priority;
+  t->nice = 0;
+  t->recent_cpu = 0; 
   t->magic = THREAD_MAGIC;
   t->wakeup_tick = 0;
 
