@@ -88,19 +88,19 @@ struct thread
    char name[16];                      /* Name (for debugging purposes). */
    uint8_t *stack;                     /* Saved stack pointer. */
    int priority;                       /* Priority. */
-   int default_priority;               /* */
-   int nice;                           /* */
-   int recent_cpu;                     /* */
+   int default_priority;               /* Thread's priority without donation.*/
+   int nice;                           /* Niceness */
+   int recent_cpu;                     /* # of timer ticks that the thread is running between mlfqs priority updates. */
    struct list_elem allelem;           /* List element for all threads list. */
 
    int64_t wakeup_tick;                /* Local ticks at which thread will wake*/
 
    /* Shared between thread.c and synch.c. */
    struct list_elem elem;              /* List element. */
-   struct list_elem d_elem;            /* */
+   struct list_elem d_elem;            /* Donor list element*/
 
-   struct lock *waiting_on_lock;        /* */
-   struct list donors;                  /* */
+   struct lock *waiting_on_lock;        /* Lock that the thread is currently waiting on to run. */
+   struct list donors;                  /* List of threads waiting on lock held by thread. */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

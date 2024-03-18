@@ -218,7 +218,6 @@ lock_acquire (struct lock *lock)
     list_insert_ordered(&lock->holder->donors, &cur->d_elem, thread_priority_greater, NULL);
     
     /* Nested priority donation */
-    /* use different variable name*/
     struct thread *t = cur;
     while(t->waiting_on_lock != NULL){
       struct thread *lock_holder = t->waiting_on_lock->holder;
@@ -280,7 +279,7 @@ lock_release (struct lock *lock)
     }
 
   /* Priority donation*/
-  /* Remove thread that holds the lock on donation list*/
+  /* Remove the lock holder thread from the current thread's donation list*/
   struct list_elem *donor_elem = list_begin(&cur->donors);
   while(donor_elem != list_end(&cur->donors))
     {
